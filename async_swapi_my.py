@@ -44,11 +44,10 @@ async def insert_person(people_list):
 async def main(number):
     await init_db()
 
-    for person_id_chunk in chunked(range(1, number), CHUNK_SIZE):  # генерирует до число-1, а надо полностью
+    for person_id_chunk in chunked(range(1, number), CHUNK_SIZE):
         coros = [get_person(person_id) for person_id in person_id_chunk]
         result = await asyncio.gather(*coros)
         asyncio.create_task(insert_person(result))
-        # print(result)
 
     tasks = asyncio.all_tasks() - {asyncio.current_task()}
     await asyncio.gather(*tasks)
@@ -58,8 +57,6 @@ async def main(number):
 if __name__ == "__main__":
     start = datetime.datetime.now()
     count = requests.get("https://swapi.py4e.com/api/people")
-    number = count.json()["count"] + 2
-    # потому что в swapi начинается с 0 и range до "число-1"
-    # print(number)
+    number = count.json()["count"] + 2 # потому что в swapi начинается с 0 и range до "число-1"
     asyncio.run(main(number))
     print(datetime.datetime.now() - start)
