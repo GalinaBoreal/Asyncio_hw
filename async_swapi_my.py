@@ -18,7 +18,18 @@ async def get_person(person_id: int):
     return person
 
 
-async def insert_person(people_list):
+async def get_names(urls: list):
+    async with aiohttp.ClientSession() as session:
+        if urls:
+            requests = [await session.get(url) for url in urls]
+            response = [await i.json() for i in requests]
+            names_list = ", ".join([i.get("title") or i.get("name") for i in response])
+            return names_list
+        else:
+            return None
+
+
+async def insert_person(people_list: tuple):
     async with Session() as session:
         people_list = [SwapiPeople(
             **{
@@ -31,22 +42,23 @@ async def insert_person(people_list):
                 "birth_year": person.get("birth_year"),
                 "gender": person.get("gender"),
                 "homeworld": person.get("homeworld"),
-                "films": ', '.join(person.get("films")) if person.get("films") else '',
-                "species": ', '.join(person.get("species")) if person.get("species") else '',
-                "vehicles": ', '.join(person.get("starships")) if person.get("starships") else '',
-                "starships": ', '.join(person.get("starships")) if person.get("starships") else '',
+                "films": await get_names(person.get("films")),
+                "species": await get_names(person.get("species")),
+                "vehicles": await get_names(person.get("vehicles")),
+                "starships": await get_names(person.get("starships"))
             }
         ) for person in people_list]
         session.add_all(people_list)
         await session.commit()
 
 
-async def main(number):
+async def main(number: int):
     await init_db()
 
     for person_id_chunk in chunked(range(1, number), CHUNK_SIZE):
         coros = [get_person(person_id) for person_id in person_id_chunk]
         result = await asyncio.gather(*coros)
+        # print(result)
         asyncio.create_task(insert_person(result))
 
     tasks = asyncio.all_tasks() - {asyncio.current_task()}
@@ -57,6 +69,6 @@ async def main(number):
 if __name__ == "__main__":
     start = datetime.datetime.now()
     count = requests.get("https://swapi.py4e.com/api/people")
-    number = count.json()["count"] + 2 # потому что в swapi начинается с 0 и range до "число-1"
+    number = count.json()["count"] + 2  # потому что в swapi начинается с 0 и range до "число-1"
     asyncio.run(main(number))
     print(datetime.datetime.now() - start)
